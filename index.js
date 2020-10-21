@@ -1,5 +1,5 @@
 const Discord = require('discord.js');
-const { embedPrototype, infoEmbed, senderIsAdmin } = require("./consts");
+const { INDEmbed, infoEmbed, senderIsAdmin, logoPNG } = require("./consts");
 const token = require("./auth").token;
 let applicationQuestions = require("./application-questions.js");
 
@@ -66,7 +66,10 @@ const setApplicationSubmissions = (msg) => {
 	}
 
 	submissionChannel = msg.mentions.channels.first();
-	msg.channel.send("", embedPrototype().setDescription(`Applications will now be sent to ${submissionChannel.toString()}`));
+	msg.channel.send("", new INDEmbed({
+		title : " ",
+		description : `Applications will now be sent to ${submissionChannel.toString()}`,
+	}));
 };
 
 client.on('ready', () => {
@@ -103,8 +106,8 @@ client.on('message', msg => {
 			case "help":
 				msg.reply(`Available commands: \`\`\`${botChar}apply, ${botChar}addrole, ${botChar}setup, ${botChar}endsetup, ${botChar}setsubmissions, ${botChar}help\`\`\``);
 				break;
-			case "info":
-				msg.channel.send(" ", infoEmbed());
+			case "clan":
+				msg.channel.send(" ", infoEmbed);
 				break;
 			default:
 				msg.reply("I do not know this command.");
