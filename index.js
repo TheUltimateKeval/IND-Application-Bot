@@ -1,24 +1,34 @@
 const Discord = require('discord.js');
-const { INDEmbed, infoEmbed, senderIsAdmin, logoPNG } = require("./consts");
+const { INDEmbed, infoEmbed, senderIsAdmin, botChar } = require("./consts");
 const token = require("./auth").token;
 let applicationQuestions = require("./application-questions.js");
 
 const client = new Discord.Client();
-const botChar = "%";
 let usersApplicationStatus = [];
 let appNewForm = [];
 let isSettingFormUp = false;
+let guild = null;
 let submissionChannel = null;
 
 const applicationFormCompleted = (data) => {
 	let i = 0, answers = "";
 
+	let applicationData = [];
+
 	for (; i < applicationQuestions.length; i++) {
-		answers += `${applicationQuestions[i]}: ${data.answers[i]}\n`;
+		applicationData.push({
+			name: applicationQuestions[i],
+			value: data.answers[i],
+		})
 	}
 
 	if (submissionChannel)
-		submissionChannel.send(`${data.user.username} has submitted a form.\n${answers}`);
+		submissionChannel.send(" ", new INDEmbed({
+			title: "New Application!",
+			description: `New application submitted by ${data.user.toString()}`,
+			thumbnail: { url: data.user.avatarURL()},
+			fields: applicationData,
+		}));
 };
 
 const sendUserApplyForm = msg => {
@@ -30,11 +40,14 @@ const sendUserApplyForm = msg => {
 	const user = usersApplicationStatus.find(user => user.id === msg.author.id);
 
 	if (!user) {
-		msg.author.send(`Application commands: \`\`\`${botChar}cancel, ${botChar}redo\`\`\``);
-		msg.author.send(applicationQuestions[0]);
+		msg.author.send(" ", new INDEmbed({
+			title: "Application Commands :",
+			description: `\`\`\`js\n ${botChar}cancel - "To cancel the application" \n ${botChar}redo - "To re-attempt the application" \`\`\``,
+		}));
+		msg.author.send(" ", new INDEmbed({ description: applicationQuestions[0] }));
 		usersApplicationStatus.push({id: msg.author.id, currentStep: 0, answers: [], user: msg.author});
 	} else {
-		msg.author.send(applicationQuestions[user.currentStep]);
+		msg.author.send("", new INDEmbed({ description: applicationQuestions[user.currentStep] }));
 	}
 };
 
@@ -70,10 +83,13 @@ const setApplicationSubmissions = (msg) => {
 		title : " ",
 		description : `Applications will now be sent to ${submissionChannel.toString()}`,
 	}));
+	return;
 };
 
-client.on('ready', () => {
+client.on('ready', async () => {
 	console.log(`Logged in as ${client.user.tag}!`);
+	guild = await client.guilds.fetch("755474904580620439", false, true);
+	submissionChannel = guild.channels.cache.find((channel) => channel.id == "768072481978187796");
 });
 
 client.on('message', msg => {
@@ -100,7 +116,7 @@ client.on('message', msg => {
 				cancelUserApplicationForm(msg, true);
 				sendUserApplyForm(msg);
 				break;
-			case "setsubmissionchannel":
+			case "setsubmitchannel":
 				setApplicationSubmissions(msg);
 				break;
 			case "help":
@@ -124,14 +140,10 @@ client.on('message', msg => {
 					user.currentStep++;
 
 					if (user.currentStep >= applicationQuestions.length) {
-						if (!submissionChannel) {
-							msg.author.send("The server admin has not configured the submission channel.");
-							return;
-						}
 						applicationFormCompleted(user);
-						msg.author.send("Congratulations your application has been sent!");
+						msg.author.send(new INDEmbed({ description: "Congratulations your application has been sent! \n It will be reviewed by us and we will get back to you then." }));
 					} else {
-						msg.author.send(applicationQuestions[user.currentStep]);
+						msg.author.send(new INDEmbed({ description: applicationQuestions[user.currentStep]}));
 					}
 				}
 			}

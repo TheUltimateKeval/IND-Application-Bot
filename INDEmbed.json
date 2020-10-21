@@ -1,0 +1,7 @@
+{
+    "author" : {"name": "IND Bot", "icon_url": "https://cdn.discordapp.com/attachments/767320220842459157/767320297559949342/logo.gif"},
+    "title" : "IND Clan",
+    "color" : 16754688,
+    "thumbnail" : {"url" : "https://cdn.discordapp.com/attachments/728461529493667882/767063972779130880/No_BG.png"},
+    "footer" :{"text" : "Bot by Keval#8167", "icon_url" : "https://cdn.discordapp.com/attachments/767320220842459157/767423225978028092/face-trace.png"}
+}

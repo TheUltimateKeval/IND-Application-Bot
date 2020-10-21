@@ -7,7 +7,6 @@ exports.INDEmbed = class INDEmbed extends Discord.MessageEmbed{
     constructor(data) {
         super(data);
         this.author = data.author ? data.author : {name: "IND Bot", iconURL: exports.logoGIF};
-        this.title = data.title ? data.title : "IND Clan";
         this.color = data.color ? data.color : exports.HEXToVBColor("FFA800");
         //this.thumbnail = data.thumbnail ? data.thumbnail : exports.logoPNG;
         this.footer = data.footer ? data.footer : {text: "Bot by Keval#8167", iconURL: "https://cdn.discordapp.com/attachments/767320220842459157/767423225978028092/face-trace.png"};
@@ -26,6 +25,9 @@ exports.infoEmbed = new this.INDEmbed({
         {name: "Captains", value: "<@246227466920656899>  <@321692335765454849>", inline: true}
     ],
     thumbnail: { url: exports.logoPNG },
+    title: "IND Clan"
 })
+
+exports.botChar = "%";
 
 exports.senderIsAdmin = (msg) => Boolean(msg.member.roles.cache.find(value => value == "Admin"));
