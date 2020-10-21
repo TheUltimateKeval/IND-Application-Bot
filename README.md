@@ -1,15 +1,13 @@
-# discord-application-bot
-A custom application bot for discord.
+# IND Applications Bot
+A custom Discord bot for IND Krunker Clan
 
-## Running
-1. Create a file in this directory called "auth.json" and put in it "{"token": "YOUR-AUTH-TOKEN"}"
-2. Run with `npm run bot`
-
-## Server Setup
-1. Add the role `Admin` and add this role to the admins.
-2. Message `$setsubmissions` in your server to tell the bot to submit to you.
-3. Message `$setup` to configure the application form.
-4. Message `$endsetup` to finish.
+## Setting up
+1. Clone the repo using GitHub Desktop.
+2. Open the folder in command prompt.
+3. Create a file named `auth.js` in the folder.
+4. In the file, type in `exports.token = "BOT TOKEN HERE";`
+5. Run `npm i` to install required dependencies.
+6. Run `npm start` to start the bot.
 
 ## Applying
-End users need to run `$apply` to submit an application.
+End users need to run `%apply` to submit an application.
