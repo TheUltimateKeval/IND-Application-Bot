@@ -1,0 +1,14 @@
+{
+	"name": "discord-application-bot",
+	"version": "1.0.0",
+	"description": "A custom application bot for discord.",
+	"main": "index.js",
+	"dependencies": {
+		"discord.js": "^12.3.1"
+	},
+	"devDependencies": {},
+	"scripts": {
+		"start": "node index.js"
+	},
+	"license": "MIT"
+}
