@@ -4,11 +4,17 @@
 	"description": "A custom application bot for discord.",
 	"main": "index.js",
 	"dependencies": {
-		"discord.js": "^12.3.1"
+		"@keyv/sqlite": "^2.0.2",
+		"discord.js": "^12.3.1",
+		"keyv": "4.0.3",
+		"sqlite3": "5.0.0"
 	},
 	"devDependencies": {},
 	"scripts": {
 		"start": "node index.js"
 	},
-	"license": "MIT"
+	"license": "MIT",
+	"engines": {
+		"node": "12.16.1"
+	}
 }

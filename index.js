@@ -1,98 +1,177 @@
 const Discord = require('discord.js');
-const { INDEmbed, infoEmbed, senderIsAdmin, botChar } = require("./consts");
-const token = require("./auth").token;
-let applicationQuestions = require("./application-questions.js");
+const { INDEmbed, infoEmbed, senderIsAdmin, botChar, applicationEmbed, isImageURL, INDApplication, appFromDB } = require("./consts");
+const { DB } = require('./databasemanager')
+const token = process.env.TOKEN;
+let Questions = require("./application-questions.js");
 
 const client = new Discord.Client();
 let usersApplicationStatus = [];
 let appNewForm = [];
 let isSettingFormUp = false;
-let guild = null;
-let submissionChannel = null;
+let guild, submissionChannel, spamGuild, spamChannel;
 
-const applicationFormCompleted = (data) => {
-	let i = 0, answers = "";
+const applicationFormCompleted = (user) => {
 
-	let applicationData = [];
+	// User Application Object
+	// Store it in the DB
+	// Send it in the submissions channel
 
-	for (; i < applicationQuestions.length; i++) {
-		applicationData.push({
-			name: applicationQuestions[i],
-			value: data.answers[i],
-		})
-	}
+	let application = new INDApplication(user);
+	DB.set(user.id, application);
 
-	if (submissionChannel)
-		submissionChannel.send(" ", new INDEmbed({
-			title: "New Application!",
-			description: `New application submitted by ${data.user.toString()}`,
-			thumbnail: { url: data.user.avatarURL()},
-			fields: applicationData,
-		}));
+	submissionChannel.send(" ", applicationEmbed(application))
+	.then((sentmsg) => {
+		sentmsg.react("⬆️");
+		sentmsg.react("⬇️");
+	});
 };
 
-const sendUserApplyForm = msg => {
+const sendUserApplyForm = async msg => {
+
+	// Check if submissionChannel is configured
+	// Check if user has already applied and if so, cancel if the latest application was less than 7 days ago
+	// Ask the first question - "Applying for?" and set the user's questions in the database accordingly
+	// Then continue the application in DMs
+
+	if(msg.channel.type == "dm") {
+		msg.reply("Apply in the server! Not in DMs!");
+		return;
+	}
+
 	if(!submissionChannel){
-		msg.reply("the bot hasn't yet been configured properly. Report this to an Admin in order to resolve the issue.")
+		msg.reply("The bot hasn't yet been configured properly. Report this to an Admin in order to resolve the issue.")
 		return;
 	}
 
-	const user = usersApplicationStatus.find(user => user.id === msg.author.id);
-
-	if (!user) {
-		msg.author.send(" ", new INDEmbed({
-			title: "Application Commands :",
-			description: `\`\`\`js\n ${botChar}cancel - "To cancel the application" \n ${botChar}redo - "To re-attempt the application" \`\`\``,
-		}));
-		msg.author.send(" ", new INDEmbed({ description: applicationQuestions[0] }));
-		usersApplicationStatus.push({id: msg.author.id, currentStep: 0, answers: [], user: msg.author});
-	} else {
-		msg.author.send("", new INDEmbed({ description: applicationQuestions[user.currentStep] }));
+	if(msg.member.roles.cache.find(role => role.name == "IND" && msg.author.id != "582054452744421387")){
+		msg.reply("Idiot you're already in IND!");
+		return;
 	}
+
+	let userData;
+	await DB.get(msg.author.id).then(data => userData = data);
+
+	if(userData) {
+		let diff = new Date().getTime() - userData.time;
+		if(diff <= 604800000n && msg.author.id != "582054452744421387"){
+			msg.reply("you have submitted an application recently, try again after one week.");
+			return;
+		}
+	}
+
+	msg.author.send(" ", new INDEmbed({ title: "Applying for (Comp / Pubstomper)" }));
+	usersApplicationStatus.push({
+		id: msg.author.id,
+		user: msg.author,
+		currentStep: -1,
+		answers: [],
+		questions: Questions.common,
+		type: undefined,
+	});
 };
 
-const cancelUserApplicationForm = (msg, isRedo = false) => {
-	const user = usersApplicationStatus.find(user => user.id === msg.author.id);
-
-	if (user) {
-		usersApplicationStatus = usersApplicationStatus.filter(el => el.id !== user.id)
-		msg.reply("Application canceled.");
-	} else if (!isRedo) {
-		msg.reply("You have not started an application form yet.");
+const fetchApplication = (msg, userID) => {
+	if(!senderIsAdmin(msg)) {
+		msg.reply("you have no right to use this!");
+		return;
 	}
+
+	appFromDB(userID).then(data => {
+		if(!data){
+			msg.reply("The given user was not found");
+			return;
+		}
+		
+		msg.channel.send(" ", applicationEmbed(data));
+	});
 };
 
-const setApplicationSubmissions = (msg) => {
-	if (!msg.guild) {
-		msg.reply("this command can only be used in a guild.");
+const rejectApplication = (msg, params) => {
+	let userID = params.shift();
+	let reason = params.join(" ");
+
+	if(!senderIsAdmin(msg)) { 
+		msg.reply("you have no right to do this!");
 		return;
 	}
 
-	if (!senderIsAdmin(msg) && msg.author.id != '582054452744421387') {
-		msg.reply("only admins or the bot dev can do this.");
+	client.users.fetch(userID).then(user => {
+		DB.get(userID).then(data => {
+
+			if(!data) {
+				msg.reply("user not found in database!");
+				return;
+			}
+
+			data.status = "rejected";
+			DB.set(userID, data).then(set => {				
+				if(set) {
+					user.send(" ", new INDEmbed({
+						title: "Your application was rejected :C",
+						description: `Reason: ${reason}`,
+					}));
+				} else {
+					msg.reply("something went wrong. Contact the developer.")
+				}
+			});
+		});
+	}).catch(err => msg.reply("could not resolve user!"));
+}
+
+const acceptApplication = (msg, params) => {
+	let userID = params[0];
+
+	if(!senderIsAdmin(msg)) { 
+		msg.reply("you have no right to do this!");
 		return;
 	}
 
-	if(!msg.mentions.channels.first()){
-		msg.reply("please mention a channel to send the applications to.");
-		return;
-	}
+	client.users.fetch(userID).then(user => {
+		DB.get(userID).then(data => {
 
-	submissionChannel = msg.mentions.channels.first();
-	msg.channel.send("", new INDEmbed({
-		title : " ",
-		description : `Applications will now be sent to ${submissionChannel.toString()}`,
-	}));
-	return;
-};
+			if(!data) {
+				msg.reply("user not found in database!");
+				return;
+			}
+
+			data.status = "accepted";
+			DB.set(userID, data).then(set => {				
+				if(set) {
+					user.send(" ", new INDEmbed({
+						title: "🎉 Your application has been accepted! 🎉",
+						description: `Cheer up player! You are going to be a part of IND now!`,
+					}));
+				} else {
+					msg.reply("something went wrong. Contact the developer.")
+				}
+			});
+		});
+	}).catch(err => msg.reply("could not resolve user!"));
+}
 
 client.on('ready', async () => {
+	client.user.setPresence({ activity: { name: "%apply", type: "WATCHING" } });
+
 	console.log(`Logged in as ${client.user.tag}!`);
-	guild = await client.guilds.fetch("755474904580620439", false, true);
-	submissionChannel = guild.channels.cache.find((channel) => channel.id == "768072481978187796");
+
+	guild = await client.guilds.fetch("672016669509681182", false, true);
+	submissionChannel = guild.channels.cache.find((channel) => channel.id == "769812742940131359");
+	spamGuild = await client.guilds.fetch("755474904580620439", false, true);
+	spamChannel = spamGuild.channels.cache.find((channel) => channel.id == "771405118914297868");
+
+	console.log(spamChannel);
+
+	setInterval(() => {
+		spamChannel.send("Bruh wat dis...");
+	}, 60000);
+
+	console.log(`Submission Channel - #${submissionChannel.name}(${submissionChannel.id}) - ${guild.name}`);
+	console.log(`Spam Channel - #${spamChannel.name}(${spamChannel.id}) - ${spamGuild.name}`);
 });
 
 client.on('message', msg => {
+	if(msg.author.bot) return;
+
 	if (msg.content.charAt(0) === botChar) {
 		const request = msg.content.substr(1);
 		let command, parameters = [];
@@ -105,25 +184,51 @@ client.on('message', msg => {
 			command = request;
 		}
 
+		console.log(`Command "${botChar + command.toLowerCase()}" called by ${msg.author.username}#${msg.author.discriminator}(${msg.author.id})`);
+
 		switch (command.toLowerCase()) {
 			case "apply":
 				sendUserApplyForm(msg);
 				break;
-			case "cancel":
-				cancelUserApplicationForm(msg);
-				break;
-			case "redo":
-				cancelUserApplicationForm(msg, true);
-				sendUserApplyForm(msg);
-				break;
-			case "setsubmitchannel":
-				setApplicationSubmissions(msg);
-				break;
 			case "help":
-				msg.reply(`Available commands: \`\`\`${botChar}apply, ${botChar}addrole, ${botChar}setup, ${botChar}endsetup, ${botChar}setsubmissions, ${botChar}help\`\`\``);
+				msg.reply(`Help command not working kekw`);
 				break;
 			case "clan":
 				msg.channel.send(" ", infoEmbed);
+				break;
+			case "fetch":
+				if(!parameters[0]) { 
+					msg.reply("please specify a user to fetch the application of.")
+					break;
+				};
+				fetchApplication(msg, parameters[0]);
+				break;
+			case "reject":
+				if(!parameters[0]){
+					 msg.reply("please provide the ID the user to reject.");
+					 break;
+				} else if(!parameters[1]){
+					msg.reply("you need to provide a reason for rejecting the person.");
+					break;
+				}
+				rejectApplication(msg, parameters);
+				break;
+			case "accept":
+				if(!parameters[0]){
+					msg.reply("please provide the ID of the user to accept.");
+					break;
+				}
+				acceptApplication(msg, parameters);
+				break;
+			case "cleardatabase":
+				if(!msg.author.id == "582054452744421387") {
+					msg.reply("you have no right to do this!");
+					break;
+				}
+				DB.clear();
+				msg.channel.send(" ", new INDEmbed({
+					title: "Database cleared successfully!"
+				}));
 				break;
 			default:
 				msg.reply("I do not know this command.");
@@ -135,15 +240,54 @@ client.on('message', msg => {
 			} else {
 				const user = usersApplicationStatus.find(user => user.id === msg.author.id);
 
-				if (user && msg.content) {
-					user.answers.push(msg.content);
+				if (user && (msg.content || msg.attachments)) {
+
+					// Handling the first question about comp / pubs
+					if(user.currentStep === -1) {
+						switch (msg.content.toLowerCase()) {
+							case "comp" :
+								msg.reply("Comp selected");
+								user.type = "comp";
+								user.questions.push(...Questions.comp);
+								break;
+							case "pubstomper" :
+								msg.reply("Pubstomper selected");
+								user.type = "pubs";
+								user.questions.push(...Questions.pubs);
+								break;
+							default:
+								msg.reply("Invalid answer!");
+								return;
+						}
+					} else if(user.currentStep == user.questions.length - 1){ //The screenshot question
+						if(msg.attachments.first()) {
+							msg.reply("Not a valid image link! (If you're trying to upload an image, use its link instead)");
+							return;
+						}
+
+						if(msg.content){
+							try {
+								const url = new URL(msg.content);
+								if(!isImageURL(msg.content)) throw new Error();
+								user.answers.push(msg.content);
+							} catch (err) {
+								msg.reply("Not a valid image link! (If you're trying to upload an image, use its link instead)");
+								return;	
+							}
+						}
+					} else {
+						user.answers.push(msg.content);
+					}
+
 					user.currentStep++;
 
-					if (user.currentStep >= applicationQuestions.length) {
+					if (user.currentStep == user.questions.length) {
 						applicationFormCompleted(user);
 						msg.author.send(new INDEmbed({ description: "Congratulations your application has been sent! \n It will be reviewed by us and we will get back to you then." }));
+					} else if (user.currentStep < user.questions.length) {
+						msg.author.send(new INDEmbed({ title: user.questions[user.currentStep] + "?"}));
 					} else {
-						msg.author.send(new INDEmbed({ description: applicationQuestions[user.currentStep]}));
+						return;
 					}
 				}
 			}

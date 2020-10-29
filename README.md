@@ -11,3 +11,6 @@ A custom Discord bot for IND Krunker Clan
 
 ## Applying
 End users need to run `%apply` to submit an application.
+
+## Stuff
+
