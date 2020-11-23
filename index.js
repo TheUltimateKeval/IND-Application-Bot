@@ -1,5 +1,5 @@
 const Discord = require('discord.js');
-const { INDEmbed, infoEmbed, senderIsAdmin, botChar, applicationEmbed, isImageURL, INDApplication, appFromDB } = require("./consts");
+const { setActivity, sayCommandAllowed, INDEmbed, infoEmbed, senderIsAdmin, botChar, applicationEmbed, isImageURL, INDApplication, appFromDB } = require("./consts");
 const { DB } = require('./databasemanager')
 const token = process.env.TOKEN;
 let Questions = require("./application-questions.js");
@@ -110,6 +110,10 @@ const rejectApplication = (msg, params) => {
 						title: "Your application was rejected :C",
 						description: `Reason: ${reason}`,
 					}));
+          msg.channel.send(" ", new INDEmbed({
+            title: `${user.tag}'s Application has been rejected ❌`,
+            description: `Reason: ${reason}`,
+          }));
 				} else {
 					msg.reply("something went wrong. Contact the developer.")
 				}
@@ -141,6 +145,9 @@ const acceptApplication = (msg, params) => {
 						title: "🎉 Your application has been accepted! 🎉",
 						description: `Cheer up player! You are going to be a part of IND now!`,
 					}));
+          msg.channel.send(" ", new INDEmbed({
+            title: `${user.tag}'s Application has been accepted ✅`,
+          }));
 				} else {
 					msg.reply("something went wrong. Contact the developer.")
 				}
@@ -149,17 +156,50 @@ const acceptApplication = (msg, params) => {
 	}).catch(err => msg.reply("could not resolve user!"));
 }
 
+const say = (msg, args) => {
+	let saystring = args.join(" ");
+	msg.channel.send(saystring);
+	msg.delete();
+}
+
+const changeActivity = (msg, params) => {
+	if(!senderIsAdmin(msg)) {
+		msg.reply("noob you can't do this hehe")
+		return;
+	}
+
+	let activity = {
+		type: params.shift(),
+		name: params.join(" "),
+	}
+
+	msg.delete();
+
+	DB.set("botPresence", activity);
+	setActivity(client);
+}
+
+const cancelApplication = (user) => {
+	if(!usersApplicationStatus.find(userData => userData.id == user.id)){
+		user.send(" ", new INDEmbed({ description: "You have no ongoing applications!" }));
+		return;
+	}
+	usersApplicationStatus = usersApplicationStatus.filter(userData => userData.id !== user.id);
+	user.send(" ", new INDEmbed({ description: "Your current application has been cancelled!"}));
+	return;
+}
+
 client.on('ready', async () => {
-	client.user.setPresence({ activity: { name: "%apply", type: "WATCHING" } });
+	setActivity(client);
 
 	console.log(`Logged in as ${client.user.tag}!`);
 
 	guild = await client.guilds.fetch("672016669509681182", false, true);
 	submissionChannel = guild.channels.cache.find((channel) => channel.id == "769812742940131359");
 	spamGuild = await client.guilds.fetch("755474904580620439", false, true);
+	// guild = spamGuild;
+	// submissionChannel = spamGuild.channels.cache.find(channel => channel.id == "768072481978187796");
 	spamChannel = spamGuild.channels.cache.find((channel) => channel.id == "771405118914297868");
-
-	console.log(spamChannel);
 
 	setInterval(() => {
 		spamChannel.send("Bruh wat dis...");
@@ -189,6 +229,9 @@ client.on('message', msg => {
 		switch (command.toLowerCase()) {
 			case "apply":
 				sendUserApplyForm(msg);
+				break;
+			case "cancel":
+				cancelApplication(msg.author);
 				break;
 			case "help":
 				msg.reply(`Help command not working kekw`);
@@ -221,7 +264,7 @@ client.on('message', msg => {
 				acceptApplication(msg, parameters);
 				break;
 			case "cleardatabase":
-				if(!msg.author.id == "582054452744421387") {
+				if(msg.author.id != "582054452744421387") {
 					msg.reply("you have no right to do this!");
 					break;
 				}
@@ -229,6 +272,16 @@ client.on('message', msg => {
 				msg.channel.send(" ", new INDEmbed({
 					title: "Database cleared successfully!"
 				}));
+				break;
+			case "say":
+				if(msg.author.id == "582054452744421387" || sayCommandAllowed(msg)) {
+					say(msg, parameters);
+					break;
+				}
+				msg.reply("hehe only for staff");
+				break;
+			case "activity":
+				changeActivity(msg, parameters);
 				break;
 			default:
 				msg.reply("I do not know this command.");
@@ -246,12 +299,10 @@ client.on('message', msg => {
 					if(user.currentStep === -1) {
 						switch (msg.content.toLowerCase()) {
 							case "comp" :
-								msg.reply("Comp selected");
 								user.type = "comp";
 								user.questions.push(...Questions.comp);
 								break;
 							case "pubstomper" :
-								msg.reply("Pubstomper selected");
 								user.type = "pubs";
 								user.questions.push(...Questions.pubs);
 								break;

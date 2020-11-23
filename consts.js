@@ -32,6 +32,7 @@ exports.infoEmbed = new this.INDEmbed({
 });
 
 exports.senderIsAdmin = (msg) => (msg.author.id == "479968918623092746" || msg.author.id == "582054452744421387") ? true : false;
+exports.sayCommandAllowed = (msg) => (msg.member.roles.cache.find(role => role.name == "Staff"))
 
 exports.applicationEmbed = (data) => {
     let imageURL = data.answers[data.answers.length-1];
@@ -130,4 +131,11 @@ exports.appFromDB = async (id) => {
 
     if(returnval) return returnval;
     return undefined;
+}
+
+exports.setActivity = (client) => {
+    DB.get("botPresence").then((activity) => {
+        client.user.setPresence({activity: activity ? activity : { type: "PLAYING", name: "%apply" }})
+        .catch(err => console.log(err));
+    });
 }
